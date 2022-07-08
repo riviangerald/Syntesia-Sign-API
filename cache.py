@@ -14,7 +14,7 @@ class Cache:
                                    password=constants.REDIS_PASSWORD)
         self.__build_cache()
 
-    def __build_cache(self):
+    def __build_cache(self) -> None:
         try:
             data = self.__redis.hgetall(constants.REDIS_FIELD)
             for key, value in data.items():
