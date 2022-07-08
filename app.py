@@ -9,13 +9,12 @@ from cache import Cache
 app = Flask(__name__)
 cache = Cache()
 
-
 @app.route('/crypto/sign', methods=['GET'])
 def sign():
     message = request.args.get('message', default=None, type=str)
     email = request.args.get('email', default=None, type=str)
     if message is None:
-        return Response('The input message required',
+        return Response('The input message is required.',
                         status=422,
                         content_type='application/json')
 
@@ -31,10 +30,10 @@ def sign():
                             headers={'Authorization': constants.AUTH_TOKEN})
 
     if response.status_code == 502:
-        response_message = 'You signature is being evaluated, you will be notified by email when it is ready'
+        response_message = 'You signature is being evaluated, you will be notified by email when it is ready.'
         if email is None:
             response_message = 'You signature is being evaluated, ' \
-                               'to receive notification that it is ready you have to provide your email in request'
+                               'to receive notification that it is ready you have to provide your email in request.'
         return Response(
             response_message,
             status=200,

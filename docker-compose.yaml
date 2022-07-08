@@ -1,0 +1,36 @@
+version: "3"
+services:
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes: 
+      - cache:/data
+    networks:
+      - webproxy
+  syntesia-sign-api:
+    container_name: syntesia-sign-api
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: syntesia-sign-api:latest
+    ports:
+      - '5000:5000'
+    depends_on:
+      - cache
+    environment:
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    links:
+      - cache
+    networks:
+      - webproxy
+volumes:
+  cache:
+    driver: local
+networks:
+  webproxy:
+    driver: bridge
