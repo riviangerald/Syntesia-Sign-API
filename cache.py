@@ -9,9 +9,13 @@ class Cache:
     def __init__(self):
         self._cache = OrderedDict()
         self.capacity = constants.CACHE_CAPACITY
-        self.__redis = redis.Redis(host=constants.REDIS_HOST,
-                                   port=constants.REDIS_PORT,
-                                   password=constants.REDIS_PASSWORD)
+        self.__redis = None
+        try:
+            self.__redis = redis.Redis(host=constants.REDIS_HOST,
+                                       port=constants.REDIS_PORT,
+                                       password=constants.REDIS_PASSWORD)
+        except:
+            print("Redis db is not present.")
         self.__build_cache()
 
     def __build_cache(self) -> None:
@@ -32,7 +36,16 @@ class Cache:
     def put(self, key: str, value: str) -> None:
         self._cache[key] = value
         self._cache.move_to_end(key)
-        self.__redis.hset(constants.REDIS_FIELD, key, value)
+        if self.__redis is not None:
+            try:
+                self.__redis.hset(constants.REDIS_FIELD, key, value)
+            except redis.exceptions.ConnectionError:
+                pass
         if len(self._cache) > self.capacity:
             del_key, _ = self._cache.popitem(last=False)
-            self.__redis.hdel(constants.REDIS_FIELD, del_key)
+            if self.__redis is not None:
+                try:
+                    self.__redis.hdel(constants.REDIS_FIELD, del_key)
+                except redis.exceptions.ConnectionError:
+                    pass
+

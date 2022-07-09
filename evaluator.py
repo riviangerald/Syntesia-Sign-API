@@ -56,7 +56,6 @@ class Evaluator:
                     status=200,
                     content_type='application/json',
                 )
-
             response = requests.get(constants.SYNTHESIA_SIGN_API_URL + '/crypto/sign?message=' + message,
                                     headers={'Authorization': constants.AUTH_TOKEN})
             self.__number_of_hits += 1
@@ -79,6 +78,10 @@ class Evaluator:
                 status=response.status_code,
                 content_type=response.headers['content-type'],
             )
+
+    def stop_queue(self) -> None:
+        with self.__mutex:
+            self.__stop_queue_process = True
 
     def __process_queue(self) -> None:
         while not self.__stop_queue_process:
@@ -106,7 +109,6 @@ class Evaluator:
                     email = curr_request[2]
                     self.__queue.put((current_time + constants.SECONDS_TILL_NEXT_REQUEST_ATTEMPT, message, email))
                     break
-
                 # TODO: notify customer by email
                 self.__cache.put(message, response.text)
                 time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)
