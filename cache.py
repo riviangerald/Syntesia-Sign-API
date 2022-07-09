@@ -26,6 +26,12 @@ class Cache:
         except:
             print("Redis db is not present.")
 
+    def is_empty(self) -> bool:
+        return not bool(self._cache)
+
+    def get_size(self) -> int:
+        return len(self._cache)
+
     def get(self, key: str) -> Union[str, None]:
         if key not in self._cache:
             return None

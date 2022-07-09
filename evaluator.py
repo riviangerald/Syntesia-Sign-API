@@ -44,10 +44,9 @@ class Evaluator:
                 )
 
             if self.__number_of_hits == constants.NUMBER_OF_HITS_PER_MINUTE:
-                self.__queue.put((current_time, message, email))
-                response_message = 'You signature is being evaluated, you will be notified by email when it is ready.'
+                response_message = 'Your signature is being evaluated, you will be notified by email when it is ready.'
                 if email is None:
-                    response_message = 'You signature is being evaluated, ' \
+                    response_message = 'Your signature is being evaluated, ' \
                                        'to receive notification that it is ready ' \
                                        'you have to provide your email in request.'
                 self.__queue.put((current_time, message, email))
@@ -83,6 +82,16 @@ class Evaluator:
         with self.__mutex:
             self.__stop_queue_process = True
 
+    def restart_queue(self) -> None:
+        with self.__mutex:
+            self.__stop_queue_process = False
+        self.__queue_thread.join()
+        self.__queue_thread = Thread(target=self.__process_queue)
+        self.__queue_thread.start()
+
+    def get_queue_size(self) -> int:
+        return self.__queue.qsize()
+
     def __process_queue(self) -> None:
         while not self.__stop_queue_process:
             while not self.__queue.empty():
@@ -90,16 +99,17 @@ class Evaluator:
                 if current_time - self.__start_time >= constants.SECONDS_FOR_HITS_COUNTER_REFRESH:
                     self.__start_time = current_time
                     self.__number_of_hits = 0
+
+                if self.__number_of_hits == constants.NUMBER_OF_HITS_PER_MINUTE:
+                    time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)
+                    break
+
                 curr_request = self.__queue.get()
                 # Check if message was cached already
                 message = curr_request[1]
                 cached_val = self.__cache.get(message)
                 # TODO: notify customer by email
-                if cached_val:
-                    break
-
-                if self.__number_of_hits == constants.NUMBER_OF_HITS_PER_MINUTE:
-                    time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)
+                if cached_val is not None:
                     break
 
                 response = requests.get(constants.SYNTHESIA_SIGN_API_URL + '/crypto/sign?message=' + message,
