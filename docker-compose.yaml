@@ -11,7 +11,9 @@ services:
     networks:
       - webproxy
   db:
-    image: mysql:8.0
+    build:
+      context: .
+      dockerfile: ./MySQL_Dockerfile
     restart: always
     ports:
       - '3306:3306'
