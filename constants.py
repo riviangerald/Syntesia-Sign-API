@@ -2,7 +2,7 @@ SYNTHESIA_SIGN_API_URL = 'https://hiring.api.synthesia.io'
 AUTH_TOKEN = 'fc09887fe5e60c5a5efcda2e4a07ff7d'
 
 # Cache
-CACHE_CAPACITY = 1000
+CACHE_CAPACITY = 10000
 REDIS_HOST = 'cache'
 REDIS_PORT = 6379
 REDIS_PASSWORD = 'eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81'
@@ -19,3 +19,10 @@ SMTP_PORT = 587
 SMTP_SERVER = 'smtp.gmail.com'
 SMTP_LOGIN = 'smtp.tester1717@gmail.com'
 SMTP_PASSWORD = 'tqusvawhizkxqlgm'
+
+# MYSQL
+MYSQL_HOST = 'db'
+MYSQL_PORT = 3306
+MYSQL_USER = 'root'
+MYSQL_PASSWORD = 'mauFJcuf5dhRMQrjj'
+MYSQL_DB_NAME = 'messages'

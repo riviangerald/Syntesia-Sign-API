@@ -5,3 +5,4 @@ pytest==7.1.2
 pytest-flask==1.2.0
 requests-mock==1.9.3
 pytest-redis==2.4.0
+mysql-connector-python==8.0.29

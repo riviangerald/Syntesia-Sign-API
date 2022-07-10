@@ -10,6 +10,18 @@ services:
       - cache:/data
     networks:
       - webproxy
+  db:
+    image: mysql:8.0
+    restart: always
+    ports:
+      - '3306:3306'
+    environment:
+      - MYSQL_DATABASE=messages
+      - MYSQL_ROOT_PASSWORD=mauFJcuf5dhRMQrjj
+    volumes:
+      - db:/var/lib/mysql
+    networks:
+      - webproxy
   syntesia-sign-api:
     container_name: syntesia-sign-api
     build:
@@ -19,17 +31,23 @@ services:
     ports:
       - '5000:5000'
     depends_on:
+      - db
       - cache
     environment:
       REDIS_HOST: cache
       REDIS_PORT: 6379
       REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+      MYSQL_PASSWORD: mauFJcuf5dhRMQrjj
     links:
       - cache
     networks:
       - webproxy
 volumes:
   cache:
+    driver: local
+  db:
     driver: local
 networks:
   webproxy:

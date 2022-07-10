@@ -3,12 +3,15 @@ import time
 import smtplib
 import ssl
 import re
+import mysql.connector
 from flask import request
 from flask import Response
 from queue import PriorityQueue
 from threading import Thread
 from threading import Lock
 from email.message import EmailMessage
+from mysql.connector import Error
+from datetime import datetime
 
 import constants
 from cache import Cache
@@ -42,12 +45,21 @@ class Evaluator:
         self.__logger = Logger()
         self.__number_of_hits = 0
         self.__start_time = 0
+        self.__mysql_connection = None
+        try:
+            self.__mysql_connection = mysql.connector.connect(host=constants.MYSQL_HOST,
+                                                              database=constants.MYSQL_DB_NAME,
+                                                              user=constants.MYSQL_USER,
+                                                              password=constants.MYSQL_PASSWORD)
+        except Error as e:
+            self.__logger.error('Error while connecting to MySQL {}'.format(e))
         self.__cache = Cache()
         self.__queue = PriorityQueue()
         self.__mutex = Lock()
         self.__stop_queue_process = False
         self.__queue_thread = Thread(target=self.__process_queue)
         self.__queue_thread.start()
+        self.__restore_queue_from_db()
 
     def eval(self) -> Response:
         self.__logger.info('Sign request evaluation is started.')
@@ -87,7 +99,7 @@ class Evaluator:
                     response_message = 'Your signature is being evaluated, ' \
                                        'to receive notification that it is ready ' \
                                        'you have to provide your email in request.'
-                self.__queue.put((current_time, message, email))
+                self.put_to_queue(current_time, message, email)
                 self.__logger.info('Message ({}) was put in queue, queue size = {}.'
                                    .format(message, self.get_queue_size()))
                 return Response(
@@ -108,7 +120,7 @@ class Evaluator:
                     response_message = 'Your signature is being evaluated, ' \
                                        'to receive notification that it is ready you ' \
                                        'have to provide your email in request.'
-                self.__queue.put((current_time, message, email))
+                self.put_to_queue(current_time, message, email)
                 self.__logger.info('Message ({}) was put in queue, queue size = {}.'
                                    .format(message, self.get_queue_size()))
                 return Response(
@@ -140,6 +152,42 @@ class Evaluator:
     def get_queue_size(self) -> int:
         return self.__queue.qsize()
 
+    def put_to_queue(self, time, message, email):
+        try:
+            query = """INSERT INTO queue (last_attempt_time, email, message) VALUES (%s, %s, %s) """
+            cursor = self.__mysql_connection.cursor()
+            dt_object = datetime.fromtimestamp(int(time))
+            record = (dt_object, email, message)
+            cursor.execute(query, record)
+            self.__mysql_connection.commit()
+            cursor.close()
+            self.__logger.info('Insert in MySQL completed.')
+        except Error as e:
+            self.__logger.error("Failed to insert in MySQL: {}".format(e))
+        self.__queue.put((time, message, email))
+
+    def put(self, time, message, email):
+        self.__queue.put((time, message, email))
+
+    def get_from_queue(self):
+        curr_request = self.__queue.get()
+        time, _, _ = curr_request
+        try:
+            query = """DELETE FROM queue WHERE last_attempt_time = %s """
+            cursor = self.__mysql_connection.cursor()
+            dt_object = datetime.fromtimestamp(int(time))
+            record = (dt_object, )
+            cursor.execute(query, record)
+            self.__mysql_connection.commit()
+            cursor.close()
+            self.__logger.info('Delete from MySQL completed.')
+        except Error as e:
+            self.__logger.error("Failed to delete from MySQL: {}".format(e))
+        return curr_request
+
+    def get(self):
+        return self.__queue.get()
+
     def __process_queue(self) -> None:
         while not self.__stop_queue_process:
             while not self.__queue.empty():
@@ -161,7 +209,7 @@ class Evaluator:
                     time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)
                     break
 
-                curr_request = self.__queue.get()
+                curr_request = self.get_from_queue()
                 # Check if message was cached already
                 message = curr_request[1]
                 email = curr_request[2]
@@ -181,7 +229,7 @@ class Evaluator:
                 self.__logger.info('Message ({}) was processed with status_code = {}.'
                                    .format(message, response.status_code))
                 if response.status_code == 502 or 400 <= response.status_code < 500:
-                    self.__queue.put((current_time + constants.SECONDS_TILL_NEXT_REQUEST_ATTEMPT, message, email))
+                    self.put_to_queue(current_time + constants.SECONDS_TILL_NEXT_REQUEST_ATTEMPT, message, email)
                     self.__logger.info('Message ({}) was put in queue, queue size = {}.'
                                        .format(message, self.get_queue_size()))
                     time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)
@@ -191,3 +239,23 @@ class Evaluator:
                                    .format(message))
                 self.__cache.put(message, response.text)
                 time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)
+
+    def __restore_queue_from_db(self):
+        self.__logger.info('Starting restore of notifications.')
+        with self.__mutex:
+            try:
+                query = 'SELECT * FROM queue ORDER BY last_attempt_time'
+                if self.__mysql_connection is None:
+                    self.__mysql_connection = mysql.connector.connect(host=constants.MYSQL_HOST,
+                                                                      database=constants.MYSQL_DB_NAME,
+                                                                      user=constants.MYSQL_USER,
+                                                                      password=constants.MYSQL_PASSWORD)
+                cursor = self.__mysql_connection.cursor()
+                cursor.execute(query)
+                db_data = cursor.fetchall()
+                for entry in db_data:
+                    self.put(datetime.timestamp(entry[0]), entry[2], entry[1])
+                cursor.close()
+                self.__logger.info('Selecting from db is completed.')
+            except Error as e:
+                self.__logger.error("Failed to select from MySQL: {}".format(e))

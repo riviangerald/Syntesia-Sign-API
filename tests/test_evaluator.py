@@ -43,6 +43,8 @@ def create_app(requests_mock):
 def mock_test_timeout(monkeypatch):
     monkeypatch.setattr('constants.SECONDS_BETWEEN_ATTEMPTS', 0)
     monkeypatch.setattr('evaluator.send_email', lambda x, y, z, logger: 0)
+    monkeypatch.setattr('evaluator.Evaluator.put_to_queue', Evaluator.put)
+    monkeypatch.setattr('evaluator.Evaluator.get_from_queue', Evaluator.get)
 
 
 def test_ctor(mock_test_timeout):
