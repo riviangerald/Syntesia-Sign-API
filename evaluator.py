@@ -108,9 +108,9 @@ class Evaluator:
                     response_message = 'Your signature is being evaluated, ' \
                                        'to receive notification that it is ready you ' \
                                        'have to provide your email in request.'
+                self.__queue.put((current_time, message, email))
                 self.__logger.info('Message ({}) was put in queue, queue size = {}.'
                                    .format(message, self.get_queue_size()))
-                self.__queue.put((current_time, message, email))
                 return Response(
                     response_message,
                     status=200,
