@@ -87,9 +87,9 @@ class Evaluator:
                     response_message = 'Your signature is being evaluated, ' \
                                        'to receive notification that it is ready ' \
                                        'you have to provide your email in request.'
-                self.__logger.info('Message ({}) was put in queue, queue size = {}.'
-                                   .format(message, self.get_queue_size))
                 self.__queue.put((current_time, message, email))
+                self.__logger.info('Message ({}) was put in queue, queue size = {}.'
+                                   .format(message, self.get_queue_size()))
                 return Response(
                     response_message,
                     status=200,
@@ -109,7 +109,7 @@ class Evaluator:
                                        'to receive notification that it is ready you ' \
                                        'have to provide your email in request.'
                 self.__logger.info('Message ({}) was put in queue, queue size = {}.'
-                                   .format(message, self.get_queue_size))
+                                   .format(message, self.get_queue_size()))
                 self.__queue.put((current_time, message, email))
                 return Response(
                     response_message,
@@ -142,8 +142,8 @@ class Evaluator:
 
     def __process_queue(self) -> None:
         while not self.__stop_queue_process:
-            self.__logger.info('Queue size is: '.format(self.get_queue_size()))
             while not self.__queue.empty():
+                self.__logger.info('Queue size is: {}'.format(self.get_queue_size()))
                 current_time = time.time()
                 if current_time - self.__start_time >= constants.SECONDS_FOR_HITS_COUNTER_REFRESH:
                     self.__logger.info('The number of hits of endpoint is refreshed. '
@@ -170,7 +170,7 @@ class Evaluator:
                 if cached_val is not None:
                     self.__logger.info('Current item (message = {}, email = {}) is cached already'
                                        .format(message, email))
-                    send_email(email, message, cached_val)
+                    send_email(email, message, cached_val, self.__logger)
                     break
 
                 response = requests.get(constants.SYNTHESIA_SIGN_API_URL + '/crypto/sign?message=' + message,
@@ -181,13 +181,13 @@ class Evaluator:
                 self.__logger.info('Message ({}) was processed with status_code = {}.'
                                    .format(message, response.status_code))
                 if response.status_code == 502 or 400 <= response.status_code < 500:
-                    self.__logger.info('Message ({}) was put in queue, queue size = {}.'
-                                       .format(message, self.get_queue_size))
                     self.__queue.put((current_time + constants.SECONDS_TILL_NEXT_REQUEST_ATTEMPT, message, email))
+                    self.__logger.info('Message ({}) was put in queue, queue size = {}.'
+                                       .format(message, self.get_queue_size()))
+                    time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)
                     break
-                send_email(email, message, response.text)
+                send_email(email, message, response.text, self.__logger)
                 self.__logger.info('The message ({}) was successfully signed after a bunch of attempts in queue.'
                                    .format(message))
                 self.__cache.put(message, response.text)
                 time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)
-            # time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)

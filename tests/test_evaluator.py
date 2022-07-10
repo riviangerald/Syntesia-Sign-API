@@ -42,7 +42,7 @@ def create_app(requests_mock):
 @pytest.fixture
 def mock_test_timeout(monkeypatch):
     monkeypatch.setattr('constants.SECONDS_BETWEEN_ATTEMPTS', 0)
-    monkeypatch.setattr('evaluator.send_email', lambda x, y, z: 0)
+    monkeypatch.setattr('evaluator.send_email', lambda x, y, z, logger: 0)
 
 
 def test_ctor(mock_test_timeout):
