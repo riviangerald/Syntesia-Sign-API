@@ -12,6 +12,7 @@ def create_app():
 
     @app.route('/crypto/sign', methods=['GET'])
     def sign():
+        logger.info('Sign request endpoint is called.')
         return evaluator.eval()
 
     logger.info('The App is created.')

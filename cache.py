@@ -43,6 +43,7 @@ class Cache:
             return self._cache[key]
 
     def put(self, key: str, value: str) -> None:
+        self.__logger.info('The key = {}, value = {} pair was placed in cache'.format(key, value))
         self._cache[key] = value
         self._cache.move_to_end(key)
         if self.__redis is not None:
@@ -52,7 +53,7 @@ class Cache:
                 pass
         if len(self._cache) > self.capacity:
             del_key, _ = self._cache.popitem(last=False)
-            self.__logger.info('Cache is full. Recently deleted item: %s' % del_key)
+            self.__logger.info('Cache is full. Recently deleted item: {}'.format(del_key))
             if self.__redis is not None:
                 try:
                     self.__redis.hdel(constants.REDIS_FIELD, del_key)
