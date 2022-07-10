@@ -3,10 +3,12 @@ from collections import OrderedDict
 from typing import Union
 
 import constants
+from logger import Logger
 
 
 class Cache:
     def __init__(self):
+        self.__logger = Logger()
         self._cache = OrderedDict()
         self.capacity = constants.CACHE_CAPACITY
         self.__redis = None
@@ -15,7 +17,8 @@ class Cache:
                                        port=constants.REDIS_PORT,
                                        password=constants.REDIS_PASSWORD)
         except:
-            print("Redis db is not present.")
+            self.__logger.error('Redis could not be initialised. Check if it is up. '
+                                'And if the connection settings are valid.')
         self.__build_cache()
 
     def __build_cache(self) -> None:
@@ -24,7 +27,7 @@ class Cache:
             for key, value in data.items():
                 self.put(key.decode('UTF-8'), value.decode('UTF-8'))
         except:
-            print("Redis db is not present.")
+            self.__logger.error('Build cache error. Redis is down or connection is broken.')
 
     def is_empty(self) -> bool:
         return not bool(self._cache)
@@ -49,6 +52,7 @@ class Cache:
                 pass
         if len(self._cache) > self.capacity:
             del_key, _ = self._cache.popitem(last=False)
+            self.__logger.info('Cache is full. Recently deleted item: %s' % del_key)
             if self.__redis is not None:
                 try:
                     self.__redis.hdel(constants.REDIS_FIELD, del_key)

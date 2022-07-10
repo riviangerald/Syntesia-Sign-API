@@ -1,13 +1,38 @@
 import requests
 import time
+import smtplib
+import ssl
+import re
 from flask import request
 from flask import Response
 from queue import PriorityQueue
 from threading import Thread
 from threading import Lock
+from email.message import EmailMessage
 
 import constants
 from cache import Cache
+
+
+def is_valid_email(email):
+    if not re.match(r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$", email):
+        return False
+    return True
+
+
+def send_email(receiver_email, message, signed):
+    context = ssl.create_default_context()
+    with smtplib.SMTP(constants.SMTP_SERVER, constants.SMTP_PORT) as server:
+        server.ehlo()
+        server.starttls(context=context)
+        server.ehlo()
+        server.login(constants.SMTP_LOGIN, constants.SMTP_PASSWORD)
+        msg = EmailMessage()
+        msg['Subject'] = 'Your message is signed.'
+        msg['From'] = constants.SMTP_LOGIN
+        msg['To'] = receiver_email
+        msg.set_content('Your message \'{}\' signature is ready. \nSigned message: \'{}\''.format(message, signed))
+        server.send_message(msg)
 
 
 class Evaluator:
@@ -45,7 +70,7 @@ class Evaluator:
 
             if self.__number_of_hits == constants.NUMBER_OF_HITS_PER_MINUTE:
                 response_message = 'Your signature is being evaluated, you will be notified by email when it is ready.'
-                if email is None:
+                if email is None or not is_valid_email(email):
                     response_message = 'Your signature is being evaluated, ' \
                                        'to receive notification that it is ready ' \
                                        'you have to provide your email in request.'
@@ -59,9 +84,9 @@ class Evaluator:
                                     headers={'Authorization': constants.AUTH_TOKEN})
             self.__number_of_hits += 1
             if response.status_code == 502 or 400 <= response.status_code < 500:
-                response_message = 'You signature is being evaluated, you will be notified by email when it is ready.'
+                response_message = 'Your signature is being evaluated, you will be notified by email when it is ready.'
                 if email is None:
-                    response_message = 'You signature is being evaluated, ' \
+                    response_message = 'Your signature is being evaluated, ' \
                                        'to receive notification that it is ready you ' \
                                        'have to provide your email in request.'
                 self.__queue.put((current_time, message, email))
@@ -107,19 +132,19 @@ class Evaluator:
                 curr_request = self.__queue.get()
                 # Check if message was cached already
                 message = curr_request[1]
+                email = curr_request[2]
                 cached_val = self.__cache.get(message)
-                # TODO: notify customer by email
                 if cached_val is not None:
+                    send_email(email, message, cached_val)
                     break
 
                 response = requests.get(constants.SYNTHESIA_SIGN_API_URL + '/crypto/sign?message=' + message,
                                         headers={'Authorization': constants.AUTH_TOKEN})
                 self.__number_of_hits += 1
                 if response.status_code == 502 or 400 <= response.status_code < 500:
-                    email = curr_request[2]
                     self.__queue.put((current_time + constants.SECONDS_TILL_NEXT_REQUEST_ATTEMPT, message, email))
                     break
-                # TODO: notify customer by email
+                send_email(email, message, response.text)
                 self.__cache.put(message, response.text)
                 time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)
             time.sleep(constants.SECONDS_BETWEEN_ATTEMPTS)

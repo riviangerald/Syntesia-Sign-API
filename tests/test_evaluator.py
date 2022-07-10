@@ -42,6 +42,7 @@ def create_app(requests_mock):
 @pytest.fixture
 def mock_test_timeout(monkeypatch):
     monkeypatch.setattr('constants.SECONDS_BETWEEN_ATTEMPTS', 0)
+    monkeypatch.setattr('evaluator.send_email', lambda x, y, z: 0)
 
 
 def test_ctor(mock_test_timeout):
@@ -104,6 +105,19 @@ def test_eval_message_queued_with_notification(mock_test_timeout, requests_mock,
         assert response.status_code == 200
         assert response.data.decode('UTF-8') == 'Your signature is being evaluated, ' \
                                                 'you will be notified by email when it is ready.'
+
+
+def test_eval_message_queued_with_notification_invalid_email(mock_test_timeout, requests_mock, monkeypatch):
+    monkeypatch.setattr('constants.NUMBER_OF_HITS_PER_MINUTE', 1)
+    a, e = create_app(requests_mock)
+    e.stop_queue()
+    with a.test_client() as client:
+        _ = client.get('/crypto/sign', query_string={'message': 'hi', 'email': 'foo@bar.com'})
+        response = client.get('/crypto/sign', query_string={'message': 'buy', 'email': 'foo123.com'})
+        assert response.status_code == 200
+        assert response.data.decode('UTF-8') == 'Your signature is being evaluated, ' \
+                                                'to receive notification that it is ready ' \
+                                                'you have to provide your email in request.'
 
 
 def test_eval_simulate_refresh_rate(mock_test_timeout, requests_mock, monkeypatch):
