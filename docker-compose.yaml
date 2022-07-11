@@ -24,6 +24,11 @@ services:
       - db:/var/lib/mysql
     networks:
       - webproxy
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:3306"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
   syntesia-sign-api:
     container_name: syntesia-sign-api
     build:
@@ -35,6 +40,8 @@ services:
     depends_on:
       - db
       - cache
+    command: ["chmod", "+x", "./wait-for-it.sh"]
+    command: ["./wait-for-it.sh", "db:3306", "--", "python3", "app.py"]    
     environment:
       REDIS_HOST: cache
       REDIS_PORT: 6379
@@ -43,6 +50,7 @@ services:
       MYSQL_PORT: 3306
       MYSQL_PASSWORD: mauFJcuf5dhRMQrjj
     links:
+      - db
       - cache
     networks:
       - webproxy

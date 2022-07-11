@@ -253,6 +253,8 @@ class Evaluator:
                 cursor = self.__mysql_connection.cursor()
                 cursor.execute(query)
                 db_data = cursor.fetchall()
+                if not bool(db_data):
+                    self.__logger.info('There is no queued notification to restore.')
                 for entry in db_data:
                     self.put(datetime.timestamp(entry[0]), entry[2], entry[1])
                 cursor.close()
